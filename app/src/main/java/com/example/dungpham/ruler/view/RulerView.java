@@ -27,7 +27,7 @@ public class RulerView extends View {
     }
 
     private void setupMetricsConversion() {
-        float dps = 20; // ~ 1 inch in real-life
+        int dps = 20; // ~ 1/8 inch in real-life
         mPx = (int) (dps * getResources().getDisplayMetrics().density);
     }
 
@@ -46,10 +46,51 @@ public class RulerView extends View {
     protected void onDraw(Canvas canvas) {
         canvas.drawLine(0, 0, 0, canvas.getHeight(), mDrawPaint);
 
-        int dist = canvas.getHeight()/mPx;
-        for (int i=0; i<dist; i++) {
-            canvas.drawLine(0, i*dist, dist, i*dist, mDrawPaint);
-            mDrawPaint.setColor(Color.RED);
+        int constantDist = canvas.getHeight()/mPx;
+        for (int i=0; i<=constantDist; i++) {
+            int dist = constantDist * getMarkerLength(i);
+            canvas.drawLine(0, i*mPx, dist, i*mPx, mDrawPaint);
+            float textSize = mDrawPaint.getTextSize();
+            mDrawPaint.setTextSize(getTextSize(i, textSize * 3));
+            canvas.drawText(getMarkerText(i), dist, i*mPx + getTextSize(i, textSize * 3)/3, mDrawPaint);
+            mDrawPaint.setTextSize(textSize);
+        }
+    }
+
+    private int getMarkerLength(int i) {
+        if (i%8 == 0) return 8;
+        else if (i%4 == 0) return 4;
+        else if (i%2 == 0) return 2;
+        else return 1;
+    }
+
+    private float getTextSize(int i, float textSize) {
+        if (i%8 == 0) return 4*textSize;
+        else if (i%4 == 0) return 2*textSize;
+        else if (i%2 == 0) return 1.5f*textSize;
+        else return 1*textSize;
+    }
+
+    private String getMarkerText(int i) {
+        switch (i%8) {
+            case 0:
+                return Integer.toString(i/8);
+            case 1:
+                return "1/8";
+            case 2:
+                return "1/4";
+            case 3:
+                return "3/8";
+            case 4:
+                return "1/2";
+            case 5:
+                return "5/8";
+            case 6:
+                return "3/4";
+            case 7:
+                return "7/8";
+            default:
+                return "0";
         }
     }
 }
