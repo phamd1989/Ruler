@@ -4,19 +4,31 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
+
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by dungpham on 4/1/16.
  */
 public class RulerView extends View {
+
+    private final int INCH_EIGHTH = 20;
+    private final int TEXT_MAGNIFY = 3;
+    private final int CIRCLE_RADIUS = 200;
     // setup initial color
     private final int paintColor = Color.BLACK;
     // defines paint and canvas
     private Paint mDrawPaint;
     // distance between each marker in pixel, equivalent to 1/8 of an inch
-    private int mPx;
+    private int mMarkerDistanceInPx;
+    // the center of the circle on screen
+    private Point mPoint;
 
     public RulerView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -27,8 +39,8 @@ public class RulerView extends View {
     }
 
     private void setupMetricsConversion() {
-        int dps = 20; // ~ 1/8 inch in real-life
-        mPx = (int) (dps * getResources().getDisplayMetrics().density);
+        int dps = INCH_EIGHTH; // ~ 1/8 inch in real-life
+        mMarkerDistanceInPx = (int) (dps * getResources().getDisplayMetrics().density);
     }
 
     // Setup paint with color and stroke styles
@@ -44,19 +56,54 @@ public class RulerView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.drawLine(0, 0, 0, canvas.getHeight(), mDrawPaint);
+        // get the number of markers that fits the canvas height
+        int noOfMarkers = canvas.getHeight()/ mMarkerDistanceInPx;
+        float textSize = mDrawPaint.getTextSize();
+        if (mPoint == null) {
+            mPoint = new Point(canvas.getWidth(), 8*mMarkerDistanceInPx);
+        }
+        // draw the circle to indicate the actual measurement at this point
+        canvas.drawCircle(mPoint.x, mPoint.y, CIRCLE_RADIUS, mDrawPaint);
+        canvas.drawLine(mPoint.x - CIRCLE_RADIUS, mPoint.y, 0, mPoint.y, mDrawPaint);
+        DecimalFormat df = new DecimalFormat();
+        df.setMaximumFractionDigits(2);
+        String inchMeasurement = df.format(mPoint.y/(8.0f*mMarkerDistanceInPx));
+        mDrawPaint.setTextSize(1.5f * textSize * TEXT_MAGNIFY);
+        canvas.drawText(inchMeasurement, mPoint.x - CIRCLE_RADIUS/2, mPoint.y, mDrawPaint);
+        mDrawPaint.setTextSize(textSize);
 
-        int constantDist = canvas.getHeight()/mPx;
-        for (int i=0; i<=constantDist; i++) {
-            int dist = constantDist * getMarkerLength(i);
-            canvas.drawLine(0, i*mPx, dist, i*mPx, mDrawPaint);
-            float textSize = mDrawPaint.getTextSize();
-            mDrawPaint.setTextSize(getTextSize(i, textSize * 3));
-            canvas.drawText(getMarkerText(i), dist, i*mPx + getTextSize(i, textSize * 3)/3, mDrawPaint);
+        // draw the markers
+        for (int i=0; i<=noOfMarkers; i++) {
+            int markerLength = noOfMarkers * getMarkerLength(i);
+            canvas.drawLine(0, i* mMarkerDistanceInPx, markerLength, i* mMarkerDistanceInPx, mDrawPaint);
+            // get the current text size on canvas
+            mDrawPaint.setTextSize(getTextSize(i, textSize * TEXT_MAGNIFY));
+            canvas.drawText(getMarkerText(i), markerLength, i* mMarkerDistanceInPx + getTextSize(i, textSize * TEXT_MAGNIFY)/TEXT_MAGNIFY, mDrawPaint);
+            // reset the text size to the original value
             mDrawPaint.setTextSize(textSize);
         }
+
     }
 
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        int touchX = (int) event.getX();
+        int touchY = (int) event.getY();
+        // if outside canvas, don't redraw
+        if (touchY < 0 || touchY > getHeight()) return false;
+        if (Math.abs(mPoint.x - touchX) <= CIRCLE_RADIUS && Math.abs(mPoint.y - touchY) <= CIRCLE_RADIUS) {
+            mPoint.set(mPoint.x, touchY);
+        }
+        // indicate view should be redrawn
+        postInvalidate();
+        return true;
+    }
+
+    /**
+     * return different length for each marker
+     * @param i
+     * @return
+     */
     private int getMarkerLength(int i) {
         if (i%8 == 0) return 8;
         else if (i%4 == 0) return 4;
@@ -74,6 +121,7 @@ public class RulerView extends View {
     private String getMarkerText(int i) {
         switch (i%8) {
             case 0:
+                if (i==0) return "";
                 return Integer.toString(i/8);
             case 1:
                 return "1/8";
